@@ -11,3 +11,4 @@
 - 56 host tests pass, including write/erase interruptions and old-format migration; hardware and native-browser acceptance of this candidate remain pending. Earlier firmware completed native browser login and persistence, but display remained black.
 
 - Candidate flashed and read-back verified on CH32X033F8P6; normal FIDO HID enumeration restored. PIN/resident/browser migration acceptance still pending. LCD remains intentionally disabled.
+- Hardware acceptance passed: user-defined PIN setup, UP + UV flags, resident account discovery without allowList, RP binding and independent ES256 verification. Original browser credential also logged in after migration with its counter increasing. Native browser resident-passkey and power-cycle checks remain pending.
