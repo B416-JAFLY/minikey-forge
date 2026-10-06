@@ -18,13 +18,13 @@ if not info.options['clientPin']:
     if getpass.getpass('Repeat PIN: ')!=pin:raise SystemExit('PIN confirmation differs; no PIN written')
     cp.set_pin(pin);print('PIN configured. No reset or old credential erase performed.')
 else:pin=getpass.getpass('MINI PIN: ')
-token=cp.get_pin_token(pin);pin=None
+token=cp.get_pin_token(pin)
 rp='minikey-forge.test';challenge=hashlib.sha256(b'MiniKey Forge PIN/RK acceptance register').digest()
 print('Registering resident LOCAL TEST credential. Touch MINI now.',flush=True)
 result=ctap.make_credential(challenge,{'id':rp,'name':'MiniKey Forge local acceptance'},{'id':b'forge-acceptance','name':'forge-test','displayName':'Forge local test'},[{'type':'public-key','alg':-7}],options={'rk':True},pin_uv_param=cp.protocol.authenticate(token,challenge),pin_uv_protocol=1)
 auth=result.auth_data;cred=auth.credential_data
 assert auth.is_user_verified() and auth.is_user_present()
-challenge=hashlib.sha256(b'MiniKey Forge discoverable login').digest();token=cp.get_pin_token(getpass.getpass('Confirm PIN for discovery test: '))
+challenge=hashlib.sha256(b'MiniKey Forge discoverable login').digest();token=cp.get_pin_token(pin);pin=None
 print('Discovering account WITHOUT credential ID. Touch MINI now.',flush=True)
 result=ctap.get_assertion(rp,challenge,pin_uv_param=cp.protocol.authenticate(token,challenge),pin_uv_protocol=1)
 assert result.credential['id']==cred.credential_id and result.user['id']==b'forge-acceptance'
