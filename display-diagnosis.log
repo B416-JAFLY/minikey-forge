@@ -1,0 +1,10 @@
+2026-10-06 MSU2 MINI display deferred by user
+Confirmed: v1 displayed symbols; v2 optimized signing and browser login succeeded but LCD black. v3 separate GPIO edges + four NOP setup/high delays flashed/verified; user confirmed login still normal, display still black.
+Unconfirmed hypotheses (not established root causes):
+1. LCD reset/init or software SPI timing at -O2; four NOP change alone did not resolve.
+2. PA6 shared LCD D/C vs flash MISO direction transitions or CS ordering.
+3. ST7735 panel variant: offsets, MADCTL/inversion/initialization sequence.
+4. GPIO/reset pin state, connector/panel contact or power issue. USB/flash functionality does not prove panel power.
+Future: capture RESET/CS/DC/SCK/MOSI and panel voltage; compare with archived v1. Restore exact v1 LCD path in isolated display-only diagnostic, then separate flash sharing from LCD-only test. Do not alter credential storage to test LCD.
+User deprioritized animations; active firmware removes LCD initialization/drawing entirely, holds LCD RESET low. Keep minimal operation state only for CTAPHID KEEPALIVE status. Black LCD is now intended.
+Archived v3 source, LCD waveform test, image and manifest: archive/display-v3 (private-key-bearing artifacts; do not publish).
