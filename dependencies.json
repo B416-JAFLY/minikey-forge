@@ -1,0 +1,18 @@
+{
+  "ch32x035": {
+    "repository": "https://github.com/openwch/ch32x035.git",
+    "commit": "c6253942b29ff2a3f5e2829182a874afffa45881"
+  },
+  "micro-ecc": {
+    "repository": "https://github.com/kmackay/micro-ecc.git",
+    "commit": "541b3a78026420a3e369c4c9281c396b5e531113"
+  },
+  "tiny-aes": {
+    "repository": "https://github.com/kokke/tiny-AES-c.git",
+    "commit": "23856752fbd139da0b8ca6e471a13d5bcc99a08d"
+  },
+  "crypto-algorithms": {
+    "repository": "https://github.com/B-Con/crypto-algorithms.git",
+    "commit": "cfbde48414baacf51fc7c74f275190881f037d32"
+  }
+}
