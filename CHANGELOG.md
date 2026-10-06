@@ -6,6 +6,7 @@
 - Arm before normal replug, require a single MINI with the expected application AAGUID, and verify PIN unset, eight retries, rejection of known old IDs and empty resident test RPs after CTAP Reset.
 - Archive active browser public credential records only after successful reset verification, allowing the local pages to start fresh. Keep the acceptance log and archived records outside Git.
 - Five utility tests and two existing firmware reset tests passed. Device reset acceptance is recorded locally after the user runs the tool and confirms presence.
+- Hardware reset acceptance passed: PIN unset, retry budget restored to eight, four known old credential IDs rejected and three test RPs empty. No replacement credential was created; firmware and master key were retained. Both local browser test pages returned to an unregistered state.
 
 ## 2026-10-06 — PIN / resident credentials / GC candidate
 
