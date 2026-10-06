@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-06 — Reset-only maintenance tool
+
+- Add `reset-device.py` for an explicitly requested wipe of all credentials and PIN, without flashing firmware, rotating the device master key or creating replacement test credentials.
+- Arm before normal replug, require a single MINI with the expected application AAGUID, and verify PIN unset, eight retries, rejection of known old IDs and empty resident test RPs after CTAP Reset.
+- Archive active browser public credential records only after successful reset verification, allowing the local pages to start fresh. Keep the acceptance log and archived records outside Git.
+- Five utility tests and two existing firmware reset tests passed. Device reset acceptance is recorded locally after the user runs the tool and confirms presence.
+
 ## 2026-10-06 — PIN / resident credentials / GC candidate
 
 - Defer LCD repairs at user's request; archive diagnosis and remove LCD initialization, rendering and animation from firmware.

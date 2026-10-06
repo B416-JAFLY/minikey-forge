@@ -71,6 +71,20 @@ python -m venv .venv
 
 建议先验证旧浏览器登录，再验证 passkey，最后拔插设备后重新登录，检查凭据持久化。
 
+## 清空凭据与 PIN
+
+需要从空设备重新开始时，在前台管理员 PowerShell 7 中执行：
+
+```powershell
+./.venv/Scripts/python.exe ./reset-device.py --execute --wait-replug
+```
+
+看到 `READY` 后普通拔插 MINI，不要短接，启动时先别触摸。看到 `Touch MINI once now` 后轻触并松开一次；工具在固件启动后 10 秒内发送 CTAP Reset，并等待触摸确认。
+
+这会清空全部驻留和非驻留凭据、PIN 及其重试状态。工具随后核对 PIN 未设置、重试额度恢复为 8、旧测试凭据失效和测试 RP 无驻留凭据；不会创建新凭据或设置新 PIN。固件、设备主密钥和外置 Flash 前 960 KiB 保留。
+
+通过核验后，旧浏览器测试账号的公开凭据记录移至被 Git 忽略的 `build/reset-history/`，验收结果写入 `build/reset-acceptance.json`。刷新 8765 或 8766 页面即可重新注册。省略 `--execute` 只显示预览，不连接设备。
+
 ## 记录
 
 实现和验收进度见 [`CHANGELOG.md`](CHANGELOG.md)。
