@@ -4,6 +4,7 @@
 #include "ctap.h"
 #include "pin.h"
 #include "crypto.h"
+#include "ui.h"
 #include <string.h>
 #define EXPORT __declspec(dllexport)
 /* Test key only; distinct from device key in private/provision.c. */
@@ -18,8 +19,8 @@ EXPORT size_t host_ctap(const uint8_t *p,size_t n,uint8_t *out,size_t cap){retur
 EXPORT void host_poll(void){transport_poll();}
 EXPORT int host_isp_requested(void){return isp_requested;}
 void board_request_isp(void){isp_requested=1;}
-EXPORT void host_init(void){memset(flash,255,sizeof(flash));packet_count=0;presence_ok=1;fail_after=fail_erase=-1;isp_requested=0;ms=0;transport_reset();store_reset();uint8_t seed[32]={0};seed[0]=++boot_nonce;crypto_seed(seed);pin_init();ctap_reset_state();}
-EXPORT void host_reboot(void){transport_reset();ms=0;store_init();uint8_t seed[32]={0};seed[0]=++boot_nonce;crypto_seed(seed);pin_init();ctap_reset_state();}
+EXPORT void host_init(void){memset(flash,255,sizeof(flash));packet_count=0;presence_ok=1;fail_after=fail_erase=-1;isp_requested=0;ms=0;mini_ui_state=0;transport_reset();store_reset();uint8_t seed[32]={0};seed[0]=++boot_nonce;crypto_seed(seed);pin_init();ctap_reset_state();}
+EXPORT void host_reboot(void){transport_reset();ms=0;mini_ui_state=0;store_init();uint8_t seed[32]={0};seed[0]=++boot_nonce;crypto_seed(seed);pin_init();ctap_reset_state();}
 EXPORT void host_presence(int ok){presence_ok=ok;}
 EXPORT void host_time(unsigned now){ms=now;}
 EXPORT void host_fail_write(int after){fail_after=after;}
@@ -39,7 +40,8 @@ int flash_erase(uint32_t a){if(fail_erase==0)return 0;if(fail_erase>0)fail_erase
 int usb_read(uint8_t p[64]){(void)p;return 0;}
 int usb_write(const uint8_t p[64]){if(packet_count==128)return 0;memcpy(packets[packet_count++],p,64);return 1;}
 
-
 EXPORT void host_load_flash(uint32_t a,const void *p,unsigned n){if(a+n<=sizeof(flash))memcpy(flash+a,p,n);}
 EXPORT unsigned host_store_used(void){return store_used();}
 EXPORT unsigned host_store_count(void){return store_count();}
+EXPORT unsigned host_ui_state(void){return mini_ui_state;}
+EXPORT uint16_t host_ui_pixel(int x,int y,unsigned state,unsigned age,int touch_down){return ui_screen_pixel(x,y,state,age,touch_down);}

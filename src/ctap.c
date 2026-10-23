@@ -12,16 +12,17 @@ void ctap_reset_state(void){pending_count=pending_next=0;}
 static int blob(cv m,int k,unsigned type,const uint8_t **p,size_t *n){cv v;return cb_get(m,k,0,&v)==1&&cb_bytes(v,type,p,n);}
 static int opt(cv m,const char *key,int fallback){cv v;int found=cb_get(m,0,key,&v);if(found<0)return -1;if(!found)return fallback;if(v.n!=1||(v.p[0]!=0xf4&&v.p[0]!=0xf5))return -1;return v.p[0]==0xf5;}
 static void key(cw *w,int k){cb_put(w,k<0?1:0,k<0?-k-1:k);}
+extern unsigned mini_ui_state;
 static int presence(void){board_ui(1);return board_presence();}
-static size_t failure(uint8_t *out,unsigned code){out[0]=code;board_ui(4);return 1;}
+static size_t failure(uint8_t *out,unsigned code){out[0]=code;if(code!=0x36&&(code!=0x2e||mini_ui_state!=0))board_ui(4);return 1;}
 static void count(uint8_t *a,uint32_t c){a[33]=c>>24;a[34]=c>>16;a[35]=c>>8;a[36]=c;}
 static int list_match(cv list,const uint8_t rp[32],credential *c){cv item,id,type;const uint8_t *p;size_t n;for(unsigned i=0;cb_at(list,i,&item);i++)if(cb_get(item,0,"type",&type)==1&&cb_equal(type,"public-key")&&cb_get(item,0,"id",&id)==1&&cb_bytes(id,2,&p,&n)&&n==16&&store_find(p,rp,c))return 1;return 0;}
 static void user_text(cv user,const char *field,char target[65]){cv v;const uint8_t *p;size_t n;if(cb_get(user,0,field,&v)==1&&cb_bytes(v,3,&p,&n)){if(n>64){n=64;while(n&&(p[n]&0xc0)==0x80)n--;}memcpy(target,p,n);target[n]=0;}}
 static size_t sign_assertion(credential *c,const uint8_t rp[32],const uint8_t challenge[32],int up,int uv,unsigned total,uint8_t *out,size_t cap){
- uint8_t auth[37]={0},input[69],hash[32],sig[72];cw w={out,1,cap,0};out[0]=0;board_ui(2);memcpy(auth,rp,32);auth[32]=(up?1:0)|(uv?4:0);if(c->counter==UINT32_MAX)return failure(out,0x7f);c->counter++;if(!store_save(c))return failure(out,0x28);count(auth,c->counter);memcpy(input,auth,37);memcpy(input+37,challenge,32);sha(input,69,hash);int sn=crypto_sign(c->key,hash,sig);if(!sn||operation_cancelled)return failure(out,operation_cancelled?0x2d:0x7f);
+ uint8_t auth[37]={0},input[69],hash[32],sig[72];cw w={out,1,cap,0};out[0]=0;if(up)board_ui(2);memcpy(auth,rp,32);auth[32]=(up?1:0)|(uv?4:0);if(c->counter==UINT32_MAX)return failure(out,0x7f);c->counter++;if(!store_save(c))return failure(out,0x28);count(auth,c->counter);memcpy(input,auth,37);memcpy(input+37,challenge,32);sha(input,69,hash);int sn=crypto_sign(c->key,hash,sig);if(!sn||operation_cancelled)return failure(out,operation_cancelled?0x2d:0x7f);
  cb_put(&w,5,3+(c->resident==1)+(total>1));key(&w,1);cb_put(&w,5,2);cb_text(&w,"id");cb_blob(&w,c->id,16);cb_text(&w,"type");cb_text(&w,"public-key");key(&w,2);cb_blob(&w,auth,37);key(&w,3);cb_blob(&w,sig,sn);
  if(c->resident==1){key(&w,4);cb_put(&w,5,1+(uv&&c->name[0])+(uv&&c->display[0]));cb_text(&w,"id");cb_blob(&w,c->user,c->user_len);if(uv&&c->name[0]){cb_text(&w,"name");cb_text(&w,c->name);}if(uv&&c->display[0]){cb_text(&w,"displayName");cb_text(&w,c->display);}}
- if(total>1){key(&w,5);cb_put(&w,0,total);}board_ui(3);return w.error?failure(out,0x7f):w.n;
+ if(total>1){key(&w,5);cb_put(&w,0,total);}if(up)board_ui(3);return w.error?failure(out,0x7f):w.n;
 }
 size_t ctap_request(const uint8_t *req,size_t n,uint8_t *out,size_t cap){
  if(!n||cap<512)return failure(out,0x12);uint8_t command=req[0];cv m={req+1,n-1},v;cw w={out,1,cap,0};out[0]=0;
@@ -45,5 +46,5 @@ size_t ctap_request(const uint8_t *req,size_t n,uint8_t *out,size_t cap){
   unsigned total=1;if(has_allow){if(!list_match(allow,rph,&c))return failure(out,0x2e);}else{if(!up&&!verified)return failure(out,0x36);for(unsigned i=0;i<store_count();i++)if(store_at(i,&c)&&c.resident==1&&crypto_equal(c.rp,rph,32))memcpy(pending_ids[pending_count++],c.id,16);if(!pending_count)return failure(out,0x2e);total=pending_count;if(!store_find(pending_ids[0],rph,&c))return failure(out,0x2e);}
   if(up&&!presence()){ctap_reset_state();memset(&c,0,sizeof(c));return failure(out,operation_cancelled?0x2d:0x2f);}result=sign_assertion(&c,rph,challenge,up,verified,total,out,cap);
   if(!out[0]&&pending_count>1){memcpy(pending_rp,rph,32);memcpy(pending_hash,challenge,32);pending_up=up;pending_uv=verified;pending_next=1;pending_since=board_millis();}else ctap_reset_state();
- }memset(&c,0,sizeof(c));if(!out[0])board_ui(3);return result;
+ }memset(&c,0,sizeof(c));if(!out[0]&&(command!=2||up))board_ui(3);return result;
 }
