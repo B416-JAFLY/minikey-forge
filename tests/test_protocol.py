@@ -41,6 +41,8 @@ def test_info_truthfully_advertises_capabilities():
     assert info[4]=={'rk':True,'up':True,'plat':False,'clientPin':False}
     assert info[6]==[1]
     assert info[8]==128
+    assert info[10]==[{'alg':-7,'type':'public-key'}]
+    assert info[13]==4
 
 def test_webkit_silent_credential_probes_and_empty_allowlist():
     cred=register();lib.host_reboot()
@@ -182,3 +184,18 @@ def test_maintenance_command_requires_magic_and_touch():
     lib.host_presence(1);assert len(assemble(send(cid,0x40,b'MINI-BKP-v1\x00\x00')))==512
     assert assemble(send(cid,0x40,b'MINI-ISP-v1'))==b'OK'
     assert lib.host_isp_requested()==1
+
+
+def test_protocol_debug_log_records_request_shape_without_secrets():
+    cid=channel()
+    lib.host_presence(1);assert assemble(send(cid,0x40,b'MINI-LOGCLR'))==b'OK'
+    request=b'\x02'+cbor.encode({1:'example.com',2:b'c'*32,3:[{'type':'public-key','id':b'i'*16}],5:{'up':True},6:b'p'*16,7:1})
+    status=assemble(send(cid,0x10,request))[0]
+    log=assemble(send(cid,0x40,b'MINI-LOG-v1\x00\x00'));assert len(log)==512
+    records=[log[i:i+32] for i in range(0,512,32) if log[i]!=0xff]
+    assert records[0][0]==0xb0
+    ctap=[r for r in records if r[0]==0x10][0]
+    assert ctap[1]==2 and ctap[4]==status and ctap[14]==16 and ctap[15]==1 and ctap[16]==1 and ctap[17]==16
+    assert ctap[13]&3==3 and ctap[18:29]==b'example.com'
+    assert b'p'*16 not in log and b'c'*32 not in log
+    assert flash(0xe0000,32)[0]==0xb0
