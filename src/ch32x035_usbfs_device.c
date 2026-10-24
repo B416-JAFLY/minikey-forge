@@ -240,7 +240,18 @@ void USBFS_IRQHandler( void )
                                         {
                                             case HID_SET_REPORT:
                                                 memcpy(&HID_Report_Buffer[0],USBFS_EP0_Buf,DEF_USBD_UEP0_SIZE);
-                                                HID_Set_Report_Flag = SET_REPORT_WAIT_DEAL;
+                                                if(RingBuffer_Comm.RemainPack < DEF_Ring_Buffer_Max_Blks)
+                                                {
+                                                    memcpy(&Data_Buffer[(RingBuffer_Comm.LoadPtr) * DEF_USBD_FS_PACK_SIZE], USBFS_EP0_Buf, DEF_USBD_UEP0_SIZE);
+                                                    RingBuffer_Comm.PackLen[RingBuffer_Comm.LoadPtr] = DEF_USBD_UEP0_SIZE;
+                                                    RingBuffer_Comm.LoadPtr ++;
+                                                    if(RingBuffer_Comm.LoadPtr == DEF_Ring_Buffer_Max_Blks)
+                                                    {
+                                                        RingBuffer_Comm.LoadPtr = 0;
+                                                    }
+                                                    USBFSD->UEP1_DMA = (uint32_t)(&Data_Buffer[(RingBuffer_Comm.LoadPtr) * DEF_USBD_FS_PACK_SIZE]);
+                                                    RingBuffer_Comm.RemainPack ++;
+                                                }
                                                 USBFSD->UEP0_TX_LEN = 0;
                                                 USBFSD->UEP0_CTRL_H = (USBFSD->UEP0_CTRL_H & ~USBFS_UEP_T_RES_MASK) | USBFS_UEP_T_TOG | USBFS_UEP_T_RES_ACK;
                                                 break;

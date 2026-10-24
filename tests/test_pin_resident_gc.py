@@ -55,6 +55,37 @@ def test_pin_setup_change_uv_and_independent_verification():
     with pytest.raises(PinError) as ex:cp.get_pin_token('123456')
     assert ex.value.status==0x31
 
+def test_webkit_and_mobile_pin_flows():
+    cp=client();cp.set_pin('123456')
+    challenge=hashlib.sha256(b'mobile').digest()
+    # 1. Zero-length pinUvAuthParam (WebKit/iOS pre-PIN probe) must return 0x36 immediately without blocking for touch
+    lib.host_presence(0)
+    assert make(extras={8:b'',9:1})[0]==0x36
+    assert call(2,{1:'example.com',2:challenge,6:b'',7:1})[0]==0x36
+    lib.host_presence(1)
+    # 2. WebKit userVerification='discouraged' MakeCredential after getPinToken (omits pinUvAuthParam)
+    cp.get_pin_token('123456')
+    # Silent preflight (up=False) before MakeCredential must not consume token_fresh
+    assert call(2,{1:'example.com',2:challenge,3:[{'type':'public-key','id':b'x'*16}],5:{'up':False}})[0]==0x2e
+    status,result=make(extras={3:{'id':b'u1','name':'Alice','displayName':'Alice'},7:{'rk':True}})
+    assert status==0
+    cred=AuthenticatorData(result[2]).credential_data
+    assert AuthenticatorData(result[2]).is_user_verified()
+    # token_fresh is single-use: next MakeCredential without pinUvAuthParam requires PIN again
+    assert make()[0]==0x36
+    # 3. GetAssertion when PIN is set: returns 0x2e for unknown RP, and 0x36 for known RP when unverified
+    assert discover(rp='unknown.example')[0]==0x2e
+    assert discover(rp='example.com')[0]==0x36
+    assert assertion(cred.credential_id,rp='example.com')[0]==0x36
+    # Silent preflight on existing credential still succeeds with up=False
+    assert assertion(cred.credential_id,rp='example.com',extras={5:{'up':False}})[0]==0
+    # WebKit userVerification='discouraged' GetAssertion after getPinToken succeeds with uv=True and user details
+    cp.get_pin_token('123456')
+    status,result,_=discover(rp='example.com')
+    assert status==0
+    assert AuthenticatorData(result[2]).is_user_verified()
+    assert result[4]['name']=='Alice'
+
 def test_pin_retries_persist_and_power_cycle_gate():
     cp=client();cp.set_pin('1234')
     for expected in (0x31,0x31,0x34):
