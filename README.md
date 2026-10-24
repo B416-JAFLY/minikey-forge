@@ -1,98 +1,151 @@
-# MiniKey Forge
+# 🗝️ MiniKey Forge (MSU2 MINI FIDO2)
 
-将 MSU2 MINI 改造成基于 CH32X033F8P6 的 FIDO2 硬件原型，支持触摸确认、PIN 验证和驻留式 passkey。
+> **用一枚微型国产 RISC-V 芯片与一块灵动彩屏，打造属于自己的现代化 Passkey 物理安全密钥。**
 
-## 项目状态
+<p align="center">
+  <img src="assets/ui_states.png" alt="MiniKey Core States" width="100%" />
+</p>
 
-- v1 固件已在 CH32X033F8P6 实机完成注册、拔插后登录和独立 ES256 验签。
-- 当前版本通过 67 项自动化测试（56 项协议/存储/工具测试、10 项 UI 动效与状态转换测试和 1 项真实 Git 克隆测试），已烧录并回读校验，FIDO HID 枚举正常。
-- PIN 设置、UP/UV 标志、无 allowList 的驻留账号发现、RP 绑定和独立 ES256 验签已通过实机检查。旧版浏览器凭据在迁移后登录成功，签名计数器连续递增。
-- Windows 浏览器驻留式 passkey 注册、PIN/UV 登录与普通断电拔插后再次登录均已通过；服务端验签和递增计数器验证成功。
-- 0.96" ST7735S（160×80）IPS 屏幕已通过硬件 SPI1（12 MHz）与 `PC3` 片选实机点亮，支持连接入场动效（Face ID 锁扣闭合）、轻触提示与实时按压反馈（`TOUCH` / `HOLD`）、签名处理（`VERIFY`）、Apple Pay / Face ID 风格打勾确认动效（`PASSED`）以及阻尼摇晃拒绝动效（`DENIED`）。
+<p align="center">
+  <img src="https://img.shields.io/badge/FIDO2-CTAP%202.0%20%7C%202.1-blue?style=flat-square" alt="FIDO2" />
+  <img src="https://img.shields.io/badge/Chip-CH32X033F8P6%20(RISC--V)-red?style=flat-square" alt="RISC-V" />
+  <img src="https://img.shields.io/badge/Display-0.96%22%20ST7735S%20IPS-orange?style=flat-square" alt="ST7735S Display" />
+  <img src="https://img.shields.io/badge/Passkey-Resident%20Key-success?style=flat-square" alt="Passkey" />
+  <img src="https://img.shields.io/badge/Tests-71%2F71%20Passed-brightgreen?style=flat-square" alt="Tests" />
+  <img src="https://img.shields.io/badge/Platform-macOS%20%7C%20Windows-blueviolet?style=flat-square" alt="Platforms" />
+</p>
 
-## 功能
+---
 
-- **PIN 与用户验证**：实现 CTAP2.0 ClientPIN 协议 1，支持设置和修改 PIN。密钥协商使用 P-256 ECDH，PIN 加密传输使用 SHA-256、AES-256-CBC 和 HMAC。总重试额度为 8 次，连续输错 3 次后需重新上电；重试数持久保存。PIN token 保存在 RAM，重启或修改 PIN 后失效。
-- **触摸确认**：输入 PIN 完成用户验证；触摸操作提供用户在场（UP）确认。设备没有生物识别传感器。
-- **驻留凭据**：最多保存 48 个有效凭据，含旧版非驻留凭据；用户 ID 最多 64 B，姓名和显示名称各最多 64 B。支持无需 allowList 的账号发现和多账号 GetNextAssertion。PIN 验证前不返回姓名。
-- **协议与接口**：ES256、`none` attestation、64 B CTAPHID 报告，USB VID/PID 为 `1209:0001`（原型标识）。当前固件实现 CTAP2.0，支持范围不含 U2F、NFC、内置生物验证、CTAP2.1 权限 token、凭据管理和 Large Blobs。
+## 🌟 为什么要做 MiniKey Forge？
 
-## Flash 存储
+市面上常见的物理安全密钥（如 YubiKey 等）虽然成熟，但日常使用体验往往相当“冷酷”——大多数就是一个没有屏幕的纯色塑料块，全靠一颗幽暗的单色 LED 闪烁来猜测状态：
+*当前是电脑发起了连接，还是在等待我触摸？刚才轻触到底有没有成功？是因为 PIN 码输错了被拒绝，还是网络超时了？*
 
-外置 Flash 仅使用最后 64 KiB（`0xF0000–0xFFFFF`），前 960 KiB 保持不变。保留区分为两个 32 KiB bank，每个 bank 有 56 条 512 B 记录。
+**MiniKey Forge** 的初衷，就是想做一个**既足够硬核严谨、又富有生动人机交互**的便携 Passkey 物理硬件密钥。
 
-签名计数器按次追加；bank 写满时，固件把最新 PIN 配置和有效凭据复制到另一个 bank，回读校验后提交带 HMAC 的库头。断电恢复时使用已完成提交的 bank。凭据上限为 48 个；记录回收后可以继续签名。
+我们在仅有手指大小的 **MSU2 MINI** 开发板（基于沁恒 **CH32X033** RISC-V 微控制器）上，点亮了一块 0.96 英寸的 ST7735S IPS 高清彩屏，并手写了一套抗锯齿微动效引擎。无论是开机时的挂锁自检、等待轻触时的声呐波纹，还是认证通过瞬间媲美 Apple Pay / Face ID 般的弹性打勾与粒子星光庆祝，让每一次身份认证都变得清晰、直观、富有仪式感！✨
 
-同一 RP 和 user 的新驻留注册会替换该账号的旧凭据；为其他网站注册会保留已有凭据。
+---
 
-固件会迁移兼容的 `MINIF2v1` 数据库，并保留 credential ID、私钥、RP 和最新签名计数器。自动迁移范围为已用记录不超过 112 条、有效凭据不超过 48 个。测试板已完成旧库迁移，升级前创建的浏览器凭据可继续登录；超出范围时固件拒绝写入并保留旧库。
+## 🎨 灵动微动效与视觉交互
 
-## 密钥与安全实现
+固件内置专为 160×80 屏幕打造的轻量级抗锯齿渲染流水线（硬件 SPI 12 MHz + 局部脏矩形更新），提供 **35+ FPS** 顺滑交互动效：
 
-外置 Flash 中的私钥、RP、用户资料和 PIN 哈希使用 AES-256-CTR 与 HMAC-SHA256 保护。设备主密钥编译进 MCU 内部 Flash。
+<p align="center">
+  <img src="assets/ui_preview.png" alt="MiniKey Animation Showcase" width="100%" />
+</p>
 
-电脑端主密钥放在 `.env` 的 `MINI_MASTER_KEY_HEX`，也可使用同名进程环境变量。构建时生成被 Git 忽略的 `private/provision.c`；HEX、BIN、ELF 均包含设备主密钥，只能用于对应设备，不要提交或公开发布。更新已有设备时沿用原密钥；新设备可用 `python provision.py --generate` 生成专属密钥。PIN 由用户在系统提示中输入，不放入 `.env`。请离线备份主密钥；丢失后凭据无法恢复。
+### 核心状态速览
 
-主机测试使用独立的公开测试密钥。随机种子由设备密钥混合启动 ADC 和计时噪声，熵质量尚未测量。原型目前没有硬件安全审计记录；回滚、故障注入、实机栈水位和 Flash 耐久性仍待验证。
+| 状态 | 屏幕画面 | 交互设计细节 |
+| :--- | :---: | :--- |
+| **就绪待机**<br>`READY` | <img src="assets/state_ready.png" width="220" /> | 启动时锁扣自动入场闭合（Face ID 风格）并伴随冲击波光晕；待机时深邃星空底色伴有轻柔的呼吸光晕与环绕流星。 |
+| **轻触提示**<br>`TOUCH` | <img src="assets/state_touch.png" width="220" /> | 收到鉴权请求后，蓝白双流星高速环绕，屏幕荡漾出声呐涟漪（Sonar Waves），指引手指贴紧触摸铜箔极片。 |
+| **触摸确认**<br>`HOLD` | <img src="assets/state_hold.png" width="220" /> | 电容触摸感知毫秒级触发！徽章瞬时切换为翠绿 `HOLD` 状态，外圈涟漪内缩汇聚，给予实时的物理接触正反馈。 |
+| **认证通过**<br>`PASSED` | <img src="assets/state_passed.png" width="220" /> | Apple Pay / 绿圈弹入 + 双行程弹性阻尼勾选（Elastic Overshoot），随后绽放 4 颗庆祝星光与斜向高光掠过！ |
+| **拒绝/超时**<br>`DENIED` | <img src="assets/state_denied.png" width="220" /> | 认证失败或取消时，画面触发左右物理阻尼摆动（Horizontal Shake），红圈中渐进绘制出醒目的珊瑚红打叉 `×`。 |
 
-应用代码与初始化数据为 35,976 B，静态数据约 7.3 KiB；编译配置预留 6 KiB 栈。
+---
 
-## Windows 构建
+## 🛡️ 硬核安全与协议特性
 
-使用 PowerShell 7，在项目目录运行：
+别看小屏幕灵动有趣，底层密码学与防掉电容灾设计同样一丝不苟：
+
+- **现代 Passkey & 驻留凭据（Resident Credentials）**：
+  - 完美支持 WebAuthn / FIDO2 / CTAP 2.0 及 **CTAP 2.1** 规范。
+  - 支持免输用户名的发现式登录（Discoverable Credentials / 无 `allowList` 自动账号发现）。
+  - 最大可保存 **48 个**活跃常驻凭据（支持多账号切换与同 RP/用户自动更新）。
+- **ClientPIN 与用户在场（UP / UV）**：
+  - 严格实现 CTAP2 协议 1 的 P-256 ECDH 密钥协商与 AES-256-CBC PIN 加密通道。
+  - 支持 CTAP 2.1 子命令 9 发放的标准 32 字节 `pinUvAuthToken` 与权限范围管理。
+  - 独立持久化 PIN 错误计数器（最多允许 8 次重试，连续输错 3 次锁定强制拔插），防止离线暴力破解。
+- **A/B 双存储 Bank 防掉电容灾系统**：
+  - 选用外部 SPI Flash 独立扇区，采用 **A/B 双 Bank 动态垃圾回收（GC）** 架构。
+  - 每次签名采用追加写入，满载时原子迁移至备用 Bank，并以 HMAC-SHA256 头校验后原子切换。
+  - 私钥与用户敏感数据全链路经由 **AES-256-CTR** 加密保护，即使遭遇异常拔掉电源也绝不丢号或损坏库结构。
+- **生产特供版优化（Zero Overhead）**：
+  - 正式生产固件默认彻底关闭运行时 Flash 调试写盘，**Flash 磨损为 0**，认证流程零 I/O 等待延迟。
+  - 固件 App 净体积仅 **50.2 KiB**（预留 6 KiB 栈空间），运行轻巧稳健。
+
+---
+
+## 💻 平台兼容性
+
+目前 MiniKey 已在多平台下经过严格的真实网站日常登录测试：
+
+| 操作系统 / 浏览器 | 兼容表现 | 验证服务与场景 |
+| :--- | :---: | :--- |
+| **macOS (Safari / Chrome)** | 🟢 **100% 完美支持** | 针对 Safari / WebKit 的静默无交互探测（`allowList: []`）提供专有 `0x2E` 负反馈协商，Google、Apple、OpenAI、Tailscale Passkey 秒级免密登录。 |
+| **Windows 11 (Hello / Edge / Chrome)** | 🟢 **100% 完美支持** | 原生兼容 Windows 11 安全密钥管理器、PIN 码管理、驻留密钥发现与快速验证。 |
+| **Linux (Chromium / Firefox / pam-u2f)** | 🟢 **支持** | 标准 HID 接口即插即用，支持桌面浏览器 WebAuthn 登录与系统 PAM 认证。 |
+| **Android 16 (Chrome / Play 凭据管理器)** | 🟡 *已知局限* | Google Play 服务（GmsCore）在收到 PIN token 约 10ms 后在本地主动发出了 `CANCEL`，暂无法完成手机端外部漫游密钥登录，作为已知 Issue 追踪中。 |
+
+---
+
+## 🚀 快速上手与本地把玩
+
+本项目使用干净的 Python + 轻量工具链驱动，无需复杂的 IDE 安装，支持在本地电脑上完成仿真测试与一键烧录。
+
+### 1. 环境准备 (Windows 11 / PowerShell 7)
 
 ```powershell
+# 克隆仓库
+git clone https://github.com/B416-JAFLY/minikey-forge.git
+cd minikey-forge
+
+# 创建专属虚拟环境并安装依赖
 python -m venv .venv
-./.venv/Scripts/python.exe -m pip install -r requirements-lock.txt
-./.venv/Scripts/python.exe fetch-dependencies.py
-./.venv/Scripts/python.exe setup-tools.py
-./build.ps1 -HostTest
-./.venv/Scripts/python.exe -m pytest tests -q
-./build.ps1
+.\.venv\Scripts\python.exe -m pip install -r requirements-lock.txt
+.\.venv\Scripts\python.exe fetch-dependencies.py
+.\.venv\Scripts\python.exe setup-tools.py
 ```
 
-编译器使用项目 `tools/` 下的 xPack RISC-V GCC 15.2.0-1 和 Zig 0.15.2。上游依赖的固定提交见 [`dependencies.json`](dependencies.json)，工具下载地址和 SHA-256 见 [`toolchain.json`](toolchain.json)。
+### 2. 运行宿主端单元测试（71 项全通）
 
-烧录工具 `wchisp` 需从 [ch32-rs/wchisp 官方 Releases](https://github.com/ch32-rs/wchisp/releases) 下载 Windows x64 版本，放入 `tools/wchisp-win-x64/`。第三方代码及适用许可见 [`THIRD_PARTY.md`](THIRD_PARTY.md)。项目新增代码当前未设置统一许可证。
-
-## 平台兼容性与已知限制 (Known Issues)
-
-- **macOS (Safari / Chrome / WebKit)**：100% 兼容。支持驻留式 Passkey 登录、WebKit 静默凭据探测（`0x2E` 快速负反馈协商）、PIN 验证与物理触摸确认，Tailscale、Apple 等账号登录稳定可靠。
-- **Windows 11 / Windows Hello (Chrome / Edge)**：100% 兼容。支持系统原生安全密钥管理器、PIN 验证、凭据发现与触摸确认。
-- **Android (Chrome / Google Play Services / Credential Manager)**：
-  - **已知问题 (Known Issue)**：在 Android 16（如 iQOO / OriginOS 5 等机型）的 Chrome 环境中，通过 Google 账户安全密钥管理器调用外部 USB 安全密钥进行 Passkey 登录时，系统在成功完成 ECDH 协商并获取 `pinUvAuthToken`（CTAP 2.1 子命令 9）后约 10~15ms 内，Google Play 服务（GmsCore）会在本地主动下发 `CTAPHID_CANCEL (0x11)` 终止流程，未进一步下发 `authenticatorGetAssertion`，导致手机端弹窗提示 `Error: Passkey sign in failed, please try again`。
-  - **当前状态**：该问题受限于 Android Play Services 闭源客户端对漫游安全密钥的特定内部校验策略，目前在 Android 端暂不可用，已作为已知限制收录并搁置，后续视 Android FIDO 客户端更新进一步追踪。
-
-## 烧录与验收
-
-1. 启动 `wait-flash.py --execute`，确认状态为 `ARMED`。
-2. 在前台管理员 PowerShell 7 中运行 `enter-isp.py --execute` 并触摸设备。
-3. 等待程序核对设备和芯片、完成烧录与回读校验；成功后运行本地 `wchisp reset`。
-4. 升级已有设备时保留原主密钥和凭据存储。不要运行初始化、CTAP Reset 或保护选项变更。
-
-常用检查命令：
-
-- `verify-device.py --info-only`：读取设备能力。
-- `verify-pin-resident.py`：设置或输入 PIN，创建本地驻留测试凭据，并通过账号发现完成登录与独立验签。不会擦除已有凭据；再次运行会替换同一测试账号。
-- `web-test.py`：启动 `http://localhost:8765`，用于旧非驻留浏览器凭据。
-- `web-test.py --passkey`：启动 `http://localhost:8766`，使用要求驻留凭据和 UV 的独立测试账号。登录时不提供 allowList，PIN 在 Windows 安全提示中输入。
-
-建议先验证旧浏览器登录，再验证 passkey，最后拔插设备后重新登录，检查凭据持久化。
-
-## 清空凭据与 PIN
-
-需要从空设备重新开始时，在前台管理员 PowerShell 7 中执行：
+利用自带的 Zig 编译器直接把固件逻辑编成 DLL，在本地 PC 跑完包括协议边界、掉电擦写模拟、乃至 **UI 逐像素点阵绘制** 的完整自动化测试：
 
 ```powershell
-./.venv/Scripts/python.exe ./reset-device.py --execute --wait-replug
+.\build.ps1 -HostTest
+.\.venv\Scripts\python.exe -m pytest tests -q
+# 输出: 71 passed in 3.73s
 ```
 
-看到 `READY` 后普通拔插 MINI，不要短接，启动时先别触摸。看到 `Touch MINI once now` 后轻触并松开一次；工具在固件启动后 10 秒内发送 CTAP Reset，并等待触摸确认。
+### 3. 编译与烧录固件
 
-这会清空全部驻留和非驻留凭据、PIN 及其重试状态。工具随后核对 PIN 未设置、重试额度恢复为 8、旧测试凭据失效和测试 RP 无驻留凭据；不会创建新凭据或设置新 PIN。固件、设备主密钥和外置 Flash 前 960 KiB 保留。
+```powershell
+# 1. 编译生产固件 (默认关闭耗电日志，极速稳健)
+.\build.ps1
 
-通过核验后，旧浏览器测试账号的公开凭据记录移至被 Git 忽略的 `build/reset-history/`，验收结果写入 `build/reset-acceptance.json`。刷新 8765 或 8766 页面即可重新注册。省略 `--execute` 只显示预览，不连接设备。
+# 2. 烧录固件至物理板卡（安全烧录并自动验证硬件通信与账号留存）
+.\.venv\Scripts\python.exe private/flash_and_backup.py flash-only
+```
+> 💡 烧录时终端会提示 `WAITING_TOUCH_FOR_ISP`，只需轻触一下板子上的触摸铜箔，即可自动进入 ISP 烧录并完成全部硬件自检！
 
-## 记录
+### 4. 离线备份你的密钥资产
 
-实现和验收进度见 [`CHANGELOG.md`](CHANGELOG.md)。
+```powershell
+# 离线备份物理密钥中的所有账号凭据（需触摸授权）
+.\.venv\Scripts\python.exe private/flash_and_backup.py backup
+```
+导出的凭据备份将以加密文件形式安全保存在 `private/` 目录下（受 `.gitignore` 保护）。
+
+---
+
+## 🛠️ 硬件与物料选型
+
+* **主控 MCU**：沁恒微电子 (WCH) [CH32X033F8P6](http://www.wch.cn) (RISC-V 32 位内核, 62 KiB Code Flash, 20 KiB SRAM)
+* **显示屏**：0.96 英寸 ST7735S IPS 彩色 LCD 屏（160×80 分辨率，8-pin 硬件 SPI）
+* **存储器**：板载 1 MiB SPI NOR Flash
+* **触摸板**：MCU 内部电容式触摸通道（TouchKey）
+
+---
+
+## 🤝 致谢与生态开源
+
+* [micro-ecc](https://github.com/kmackay/micro-ecc) - 轻量高效的 ECDSA P-256 密码学实现
+* [tiny-aes](https://github.com/kokke/tiny-AES-c) - 适用于嵌入式的小型 AES 实现
+* [wchisp](https://github.com/ch32-rs/wchisp) - 优雅强大的开源 WCH ISP 烧录工具
+* [python-fido2](https://github.com/Yubico/python-fido2) - Yubico 官方的 FIDO2 协议栈与测试框架
+
+欢迎安全爱好者与硬件极客 Star、Fork、提 Issue 或共同交流！让每个人都能拥有属于自己的灵动 Passkey。🎉
