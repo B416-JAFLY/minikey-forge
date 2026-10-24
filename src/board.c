@@ -341,7 +341,15 @@ int board_presence(void) {
 }
 
 int usb_read(uint8_t b[64]) {
-    if (!USBFS_DevEnumStatus || !RingBuffer_Comm.RemainPack) return 0;
+    if (!USBFS_DevEnumStatus) return 0;
+    if (HID_Set_Report_Flag) {
+        NVIC_DisableIRQ(USBFS_IRQn);
+        memcpy(b, HID_Report_Buffer, 64);
+        HID_Set_Report_Flag = 0;
+        NVIC_EnableIRQ(USBFS_IRQn);
+        return 1;
+    }
+    if (!RingBuffer_Comm.RemainPack) return 0;
     NVIC_DisableIRQ(USBFS_IRQn);
     unsigned idx = RingBuffer_Comm.DealPtr;
     unsigned n = RingBuffer_Comm.PackLen[idx];

@@ -40,6 +40,26 @@ def test_info_truthfully_advertises_capabilities():
     assert info[1]==['FIDO_2_0'];assert info[5]==1200
     assert info[4]=={'rk':True,'up':True,'plat':False,'clientPin':False}
     assert info[6]==[1]
+    assert info[8]==128
+
+def test_webkit_silent_credential_probes_and_empty_allowlist():
+    cred=register();lib.host_reboot()
+    challenge=hashlib.sha256(b'webkit-probe').digest()
+    status,_=call(2,{1:'',2:challenge,3:[{'type':'public-key','id':cred.credential_id}],5:{'up':False}})
+    assert status==0x2e
+    assert lib.host_ui_state()==0
+    assert call(2,{1:'example.com',2:challenge,3:[],5:{'up':False}})[0]==0x2e
+    assert call(2,{1:'example.com',2:challenge,3:[]})[0]==0x2e
+    status,result=call(2,{1:'example.com',2:challenge,3:[
+        {'type':'public-key','id':b'x'*32},
+        {'type':'public-key','id':b'y'*64},
+        {'type':'public-key','id':cred.credential_id},
+    ],5:{'up':False}})
+    assert status==0
+    assert result[1]['id']==cred.credential_id
+    status,result=call(1,{1:challenge,2:{'name':'example.com'},3:{'id':b'user','name':'user'},4:[{'type':'public-key','alg':-7}]})
+    assert status==0
+    assert AuthenticatorData(result[2]).rp_id_hash==hashlib.sha256(b'example.com').digest()
 
 def test_registration_assertion_and_counter_verified_by_independent_crypto():
     cred=register()
@@ -158,5 +178,7 @@ def test_maintenance_command_requires_magic_and_touch():
     cid=channel();assert send(cid,0x40,b'wrong')[0][7]==2
     assert lib.host_isp_requested()==0
     lib.host_presence(0);send(cid,0x40,b'MINI-ISP-v1');assert lib.host_isp_requested()==0
-    lib.host_presence(1);assert assemble(send(cid,0x40,b'MINI-ISP-v1'))==b'OK'
+    lib.host_presence(0);assert send(cid,0x40,b'MINI-BKP-v1\x00\x00')[0][7]==5
+    lib.host_presence(1);assert len(assemble(send(cid,0x40,b'MINI-BKP-v1\x00\x00')))==512
+    assert assemble(send(cid,0x40,b'MINI-ISP-v1'))==b'OK'
     assert lib.host_isp_requested()==1

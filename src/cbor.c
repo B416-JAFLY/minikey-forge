@@ -3,15 +3,15 @@
 #include <limits.h>
 int cb_head(cv v,unsigned *t,uint32_t *x,size_t *h){
  if(!v.n)return 0; *t=v.p[0]>>5; unsigned a=v.p[0]&31; *h=1; *x=a;
- if(a<24)return 1; if(a>26)return 0; unsigned n=1u<<(a-24);
- if(v.n<1+n)return 0; *x=0; for(unsigned i=0;i<n;i++)*x=(*x<<8)|v.p[1+i]; *h=1+n; return 1;
+ if(a<24)return 1; if(a>27)return 0; unsigned n=1u<<(a-24);
+ if(v.n<1+n)return 0; *x=0; for(unsigned i=0;i<n;i++){if(n>4&&i<n-4&&v.p[1+i])return 0;*x=(*x<<8)|v.p[1+i];} *h=1+n; return 1;
 }
 static int skip(cv v,size_t *used,unsigned depth){
  unsigned t; uint32_t x; size_t h; if(depth>8||!cb_head(v,&t,&x,&h))return 0;
  if(t==2||t==3){if(x>v.n-h)return 0;*used=h+x;return 1;}
  if(t==4||t==5){if(x>128)return 0; size_t pos=h; unsigned count=t==5?x*2:x;
   for(unsigned i=0;i<count;i++){size_t u;if(!skip((cv){v.p+pos,v.n-pos},&u,depth+1))return 0;pos+=u;}*used=pos;return 1;}
- if(t==0||t==1||(t==7&&(x==20||x==21||x==22))){*used=h;return 1;}return 0;
+ if(t==0||t==1||(t==7&&x>=20&&x<=23)){*used=h;return 1;}return 0;
 }
 int cb_valid(cv v){size_t u;return skip(v,&u,0)&&u==v.n;}
 int cb_int(cv v,int *out){unsigned t;uint32_t x;size_t h;if(!cb_head(v,&t,&x,&h)||t>1||x>INT_MAX)return 0;*out=t?-(int)x-1:(int)x;return 1;}
