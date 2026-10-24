@@ -120,8 +120,14 @@ int flash_read(uint32_t a, void *data, size_t n) {
     return 1;
 }
 
+/* Writable regions: credential store, plus one 4 KiB protocol-debug log sector. */
+static int writable(uint32_t a, size_t n) {
+    if (a >= STORE_BASE && a <= 0x100000 && n <= 0x100000 - a) return 1;
+    return a >= DEBUG_LOG_BASE && n <= 4096 && a - DEBUG_LOG_BASE <= 4096 - n;
+}
+
 int flash_write(uint32_t a, const void *data, size_t n) {
-    if (!flash_ok || a < STORE_BASE || a > 0x100000 || n > 0x100000 - a) return 0;
+    if (!flash_ok || !writable(a, n)) return 0;
     const uint8_t *p = data;
     while (n) {
         size_t take = 256 - (a & 255);
@@ -142,7 +148,7 @@ int flash_write(uint32_t a, const void *data, size_t n) {
 }
 
 int flash_erase(uint32_t a) {
-    if (!flash_ok || a < STORE_BASE || a >= 0x100000 || (a & 4095)) return 0;
+    if (!flash_ok || (a != DEBUG_LOG_BASE && (a < STORE_BASE || a >= 0x100000)) || (a & 4095)) return 0;
     if (!flash_wait()) return 0;
     write_enable();
     flash_begin();

@@ -55,6 +55,14 @@ python -m venv .venv
 
 烧录工具 `wchisp` 需从 [ch32-rs/wchisp 官方 Releases](https://github.com/ch32-rs/wchisp/releases) 下载 Windows x64 版本，放入 `tools/wchisp-win-x64/`。第三方代码及适用许可见 [`THIRD_PARTY.md`](THIRD_PARTY.md)。项目新增代码当前未设置统一许可证。
 
+## 平台兼容性与已知限制 (Known Issues)
+
+- **macOS (Safari / Chrome / WebKit)**：100% 兼容。支持驻留式 Passkey 登录、WebKit 静默凭据探测（`0x2E` 快速负反馈协商）、PIN 验证与物理触摸确认，Tailscale、Apple 等账号登录稳定可靠。
+- **Windows 11 / Windows Hello (Chrome / Edge)**：100% 兼容。支持系统原生安全密钥管理器、PIN 验证、凭据发现与触摸确认。
+- **Android (Chrome / Google Play Services / Credential Manager)**：
+  - **已知问题 (Known Issue)**：在 Android 16（如 iQOO / OriginOS 5 等机型）的 Chrome 环境中，通过 Google 账户安全密钥管理器调用外部 USB 安全密钥进行 Passkey 登录时，系统在成功完成 ECDH 协商并获取 `pinUvAuthToken`（CTAP 2.1 子命令 9）后约 10~15ms 内，Google Play 服务（GmsCore）会在本地主动下发 `CTAPHID_CANCEL (0x11)` 终止流程，未进一步下发 `authenticatorGetAssertion`，导致手机端弹窗提示 `Error: Passkey sign in failed, please try again`。
+  - **当前状态**：该问题受限于 Android Play Services 闭源客户端对漫游安全密钥的特定内部校验策略，目前在 Android 端暂不可用，已作为已知限制收录并搁置，后续视 Android FIDO 客户端更新进一步追踪。
+
 ## 烧录与验收
 
 1. 启动 `wait-flash.py --execute`，确认状态为 `ARMED`。

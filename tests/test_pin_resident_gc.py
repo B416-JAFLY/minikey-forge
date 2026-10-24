@@ -18,7 +18,7 @@ class Adapter:
         _, info=call(4)
         return SimpleNamespace(options=info[4],pin_uv_protocols=info[6])
     def client_pin(self,proto,cmd,**kw):
-        keys={'key_agreement':3,'pin_uv_param':4,'new_pin_enc':5,'pin_hash_enc':6}
+        keys={'key_agreement':3,'pin_uv_param':4,'new_pin_enc':5,'pin_hash_enc':6,'permissions':9,'permissions_rpid':10}
         status,value=call(6,{1:proto,2:int(cmd),**{keys[k]:v for k,v in kw.items() if v is not None}})
         if status: raise PinError(status)
         return value
@@ -199,3 +199,13 @@ def test_get_next_expires_and_pin_configuration_write_failure_fails_closed():
     lib.host_init();lib.host_fail_write(10)
     with pytest.raises(PinError):client().set_pin('1234')
     lib.host_fail_write(-1);lib.host_reboot();assert not call(4)[1][4]['clientPin']
+
+def test_ctap21_pin_uv_auth_token_subcommand_9():
+    cp=client();cp.set_pin("123456")
+    assert call(4)[1][4]["pinUvAuthToken"] is True
+    token=cp.get_pin_token("123456",permissions=ClientPin.PERMISSION.GET_ASSERTION,permissions_rpid="login.tailscale.com")
+    assert len(token)==32
+    cred=resident(user=b"ts_user",pin_token=token)
+    status,result,_=discover(token=token,rp="example.com")
+    assert status==0
+    assert AuthenticatorData(result[2]).is_user_verified()

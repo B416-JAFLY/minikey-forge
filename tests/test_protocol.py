@@ -37,8 +37,8 @@ def reset():lib.host_init()
 
 def test_info_truthfully_advertises_capabilities():
     status,info=call(4);assert status==0
-    assert info[1]==['FIDO_2_0'];assert info[5]==1200
-    assert info[4]=={'rk':True,'up':True,'plat':False,'clientPin':False}
+    assert info[1]==['FIDO_2_0','FIDO_2_1'];assert info[5]==1200
+    assert info[4]=={'rk':True,'up':True,'plat':False,'credMgmt':True,'clientPin':False,'pinUvAuthToken':True}
     assert info[6]==[1]
     assert info[8]==128
     assert info[10]==[{'alg':-7,'type':'public-key'}]

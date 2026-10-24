@@ -9,6 +9,8 @@ void board_ui(unsigned state);
 int flash_read(uint32_t address,void *p,size_t n);
 int flash_write(uint32_t address,const void *p,size_t n);
 int flash_erase(uint32_t address);
+/* 4 KiB external-flash sector for protocol debug records (no secrets, outside the credential store). */
+#define DEBUG_LOG_BASE 0xE0000u
 int usb_read(uint8_t packet[64]);
 int usb_write(const uint8_t packet[64]);
 extern volatile int operation_cancelled;
