@@ -10,7 +10,7 @@ defs=['-DuECC_SUPPORTS_secp160r1=0','-DuECC_SUPPORTS_secp192r1=0','-DuECC_SUPPOR
 includes=[src,vendor/'micro-ecc',vendor/'tiny-aes',vendor/'crypto-algorithms']
 if '--host' in sys.argv:
     zig=root/'tools/zig-x86_64-windows-0.15.2/zig.exe'
-    args=[str(zig),'cc','-target','x86_64-windows-gnu','-shared','-O1','-g','-Wl,--export-all-symbols','-DuECC_PLATFORM=0',*defs,*[f'-I{p}' for p in includes],*[str(p) for p in common],str(root/'tests/host_platform.c'),'-o',str(output/'mini-test.dll')]
+    args=[str(zig),'cc','-target','x86_64-windows-gnu','-shared','-O1','-g','-Wl,--export-all-symbols','-DuECC_PLATFORM=0',*defs,'-DMINI_DEBUG_LOG=1',*[f'-I{p}' for p in includes],*[str(p) for p in common],str(root/'tests/host_platform.c'),'-o',str(output/'mini-test.dll')]
     subprocess.run(args,check=True,cwd=root)
     print('Host DLL built')
     sys.exit()
@@ -20,7 +20,9 @@ files += [sdk/'Peripheral/src'/f'ch32x035_{name}.c' for name in ['rcc','gpio','a
 includes += [sdk/'Peripheral/inc',sdk/'Core']
 linker=output/'mini.ld'
 linker.write_text((sdk/'Ld/Link.ld').read_text().replace('__stack_size = 2048','__stack_size = 6144').replace('ORIGIN = 0x00000000, LENGTH = 62K','ORIGIN = 0x00002000, LENGTH = 54K'))
-base=['-march=rv32imac_zicsr_zifencei','-mabi=ilp32','-msmall-data-limit=8','-Os','-g','-ffunction-sections','-fdata-sections','-fno-common','-fstack-usage','-Wall','-Wextra','-Wno-misleading-indentation',*defs,*[f'-I{p}' for p in includes]]
+debug_log = '--debug-log' in sys.argv
+target_defs = [*defs, '-DMINI_DEBUG_LOG=1' if debug_log else '-DMINI_DEBUG_LOG=0']
+base=['-march=rv32imac_zicsr_zifencei','-mabi=ilp32','-msmall-data-limit=8','-Os','-g','-ffunction-sections','-fdata-sections','-fno-common','-fstack-usage','-Wall','-Wextra','-Wno-misleading-indentation',*target_defs,*[f'-I{p}' for p in includes]]
 objects=[]
 for i,p in enumerate(files):
     obj=output/f'{i:02}-{p.stem}.o';objects.append(obj)

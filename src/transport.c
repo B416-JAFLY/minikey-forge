@@ -16,6 +16,7 @@ static void send(uint32_t cid,uint8_t cmd,const uint8_t *p,unsigned n){uint8_t b
  while(pos<n){memset(b+4,0,60);b[4]=seq++;unsigned take=n-pos<59?n-pos:59;memcpy(b+5,p+pos,take);if(!usb_write(b))return;pos+=take;}}
 static void error(uint32_t cid,uint8_t code);
 /* Protocol debug log: 32-byte records appended to DEBUG_LOG_BASE; holds request shape/status only, never PINs, tokens or keys. */
+#if MINI_DEBUG_LOG
 static uint32_t log_pos=0xffffffffu;
 static void log_put(uint8_t *r){if(log_pos==0xffffffffu){uint8_t b[32];log_pos=4096;for(uint32_t o=0;o<4096;o+=32){if(!flash_read(DEBUG_LOG_BASE+o,b,32))return;unsigned i=0;while(i<32&&b[i]==255)i++;if(i==32){log_pos=o;break;}}if(log_pos<4096){uint8_t boot[32];memset(boot,0,32);boot[0]=0xb0;put(boot+7,board_millis());flash_write(DEBUG_LOG_BASE+log_pos,boot,32);log_pos+=32;}}if(log_pos>=4096)return;put(r+7,board_millis());flash_write(DEBUG_LOG_BASE+log_pos,r,32);log_pos+=32;}
 static void log_event(uint8_t type,uint8_t a,uint8_t b,unsigned n){uint8_t r[32];memset(r,0,32);r[0]=type;r[1]=a;r[2]=n>>8;r[3]=n;r[4]=b;log_put(r);}
@@ -33,8 +34,16 @@ static void log_ctap(const uint8_t *q,unsigned n,const uint8_t *s,unsigned sn){u
     if(cb_get(m,10,0,&v)==1&&cb_bytes(v,3,&p,&pn))memcpy(r+18,p,pn<14?pn:14);
   }}
  log_put(r);}
+#else
+#define log_event(type,a,b,n) ((void)0)
+#define log_ctap(q,n,s,sn) ((void)0)
+#endif
 static void error(uint32_t cid,uint8_t code){log_event(0x3f,command,code,total);send(cid,0x3f,&code,1);}
-void transport_reset(void){active=working=allocated=bkp_ok=operation_cancelled=0;total=received=sequence=0;log_pos=0xffffffffu;}
+void transport_reset(void){active=working=allocated=bkp_ok=operation_cancelled=0;total=received=sequence=0;
+#if MINI_DEBUG_LOG
+log_pos=0xffffffffu;
+#endif
+}
 void transport_receive(const uint8_t b[64]){uint32_t cid=be(b);uint8_t cmd=b[4]&127;
  if((b[4]&128)&&cmd==6){unsigned len=((unsigned)b[5]<<8)|b[6];if(len!=8){error(cid,3);return;}if(cid!=0xffffffffu&&(!allocated||cid!=CHANNEL)){error(cid,0x0b);return;}if(working){error(cid,6);return;}allocated=1;active=0;uint8_t info[17];memcpy(info,b+7,8);put(info+8,CHANNEL);info[12]=2;info[13]=0;info[14]=1;info[15]=0;info[16]=0x0d;send(cid,6,info,17);log_event(0x06,cid==0xffffffffu,0,len);return;}
  if(!allocated||cid!=CHANNEL){error(cid,0x0b);return;}
@@ -48,8 +57,13 @@ void transport_receive(const uint8_t b[64]){uint32_t cid=be(b);uint8_t cmd=b[4]&
  else if(command==8){if(total)error(cid,3);else{board_ui(3);send(cid,8,0,0);}}
  else if(command==0x10){size_t n=ctap_request(request,total,response,sizeof(response));send(cid,0x10,response,n);log_ctap(request,total,response,n);}
  else if(command==0x40){if(total==11&&!memcmp(request,"MINI-ISP-v1",11)){board_ui(1);if(board_presence()){board_ui(2);send(cid,0x40,(const uint8_t*)"OK",2);board_request_isp();}else{board_ui(0);error(cid,0x05);}}
+#if MINI_DEBUG_LOG
   else if((total==13&&(!memcmp(request,"MINI-BKP-v1",11)||!memcmp(request,"MINI-LOG-v1",11)))||(total==11&&!memcmp(request,"MINI-LOGCLR",11))){int log=request[5]=='L';unsigned off=total==13?((unsigned)request[11]<<8)|request[12]:0;if((off&511)||(log&&off>=4096))error(cid,2);else if(!bkp_ok&&(board_ui(1),!board_presence())){board_ui(0);error(cid,0x05);}
    else{bkp_ok=1;if(total==11){if(flash_erase(DEBUG_LOG_BASE)){log_pos=0xffffffffu;board_ui(3);send(cid,0x40,(const uint8_t*)"OK",2);}else error(cid,0x7f);}else if(flash_read((log?DEBUG_LOG_BASE:0xF0000u)+off,response,512)){board_ui((!log&&off==0xFE00u)?3:0);send(cid,0x40,response,512);}else error(cid,0x7f);}}
+#else
+  else if(total==13&&!memcmp(request,"MINI-BKP-v1",11)){unsigned off=((unsigned)request[11]<<8)|request[12];if(off&511)error(cid,2);else if(!bkp_ok&&(board_ui(1),!board_presence())){board_ui(0);error(cid,0x05);}
+   else{bkp_ok=1;if(flash_read(0xF0000u+off,response,512)){board_ui(off==0xFE00u?3:0);send(cid,0x40,response,512);}else error(cid,0x7f);}}
+#endif
   else error(cid,2);}
  else error(cid,1);working=0;memset(request,0,sizeof(request));memset(response,0,sizeof(response));}
 void transport_poll(void){uint8_t b[64];while(usb_read(b))transport_receive(b);if(active&&(uint32_t)(board_millis()-started)>3000){active=0;error(CHANNEL,5);}}

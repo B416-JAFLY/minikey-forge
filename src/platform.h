@@ -9,6 +9,10 @@ void board_ui(unsigned state);
 int flash_read(uint32_t address,void *p,size_t n);
 int flash_write(uint32_t address,const void *p,size_t n);
 int flash_erase(uint32_t address);
+/* Protocol debug logger in SPI Flash 0xE0000. 1=enabled (diagnostic/testing), 0=disabled (production build). */
+#ifndef MINI_DEBUG_LOG
+#define MINI_DEBUG_LOG 0
+#endif
 /* 4 KiB external-flash sector for protocol debug records (no secrets, outside the credential store). */
 #define DEBUG_LOG_BASE 0xE0000u
 int usb_read(uint8_t packet[64]);
